@@ -59,16 +59,22 @@ for i in tqdm(range(0, len(inputs_list), batch_size), desc="Generating"):
     batch_inputs = inputs_list[i : i + batch_size]
     batch_qs     = questions[i : i + batch_size]
 
-    batch_answers = []
-    for inp, q in zip(batch_inputs, batch_qs):
+    batch_answers = [None] * len(batch_inputs)
+    gen_indices: list[int] = []
+    gen_inputs:  list[str] = []
+
+    for j, (inp, q) in enumerate(zip(batch_inputs, batch_qs)):
         # ── Retrieval fallback ────────────────────────────────────────────────
         if q in retrieval_map:
-            batch_answers.append(retrieval_map[q])
-            continue
+            batch_answers[j] = retrieval_map[q]
+        else:
+            gen_indices.append(j)
+            gen_inputs.append(inp)
 
-        # ── Model generation ──────────────────────────────────────────────────
+    # ── Batch model generation for all non-retrieved items ────────────────────
+    if gen_inputs:
         enc = tokenizer(
-            inp,
+            gen_inputs,
             max_length=MCFG["input_max_len"],
             padding=True,
             truncation=True,
@@ -85,14 +91,13 @@ for i in tqdm(range(0, len(inputs_list), batch_size), desc="Generating"):
                 early_stopping=ICFG["early_stopping"],
             )
 
-        decoded = tokenizer.decode(out_ids[0], skip_special_tokens=True)
-
-        # Strip echoed input prefix if model repeated it
-        prefix = inp.split("question:")[-1].strip()
-        if decoded.startswith(prefix):
-            decoded = decoded[len(prefix):].strip()
-
-        batch_answers.append(decoded)
+        for k, (j, inp) in enumerate(zip(gen_indices, gen_inputs)):
+            decoded = tokenizer.decode(out_ids[k], skip_special_tokens=True)
+            # Strip echoed input prefix if model repeated it
+            prefix = inp.split("question:")[-1].strip()
+            if decoded.startswith(prefix):
+                decoded = decoded[len(prefix):].strip()
+            batch_answers[j] = decoded
 
     all_answers.extend(batch_answers)
 

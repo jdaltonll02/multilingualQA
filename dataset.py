@@ -75,7 +75,7 @@ class HealthQADataset(Dataset):
         enc = self.tokenizer(
             self.inputs[idx],
             max_length=INPUT_MAX_LEN,
-            padding="max_length",
+            padding=False,
             truncation=True,
             return_tensors="pt",
         )
@@ -88,7 +88,7 @@ class HealthQADataset(Dataset):
             label_enc = self.tokenizer(
                 text_target=self.targets[idx],
                 max_length=TARGET_MAX_LEN,
-                padding="max_length",
+                padding=False,
                 truncation=True,
                 return_tensors="pt",
             )

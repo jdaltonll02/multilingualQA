@@ -18,7 +18,7 @@ import torch
 import yaml
 from rouge_score import rouge_scorer
 from torch.utils.data import DataLoader, WeightedRandomSampler
-from transformers import AutoModelForSeq2SeqLM, Seq2SeqTrainer, Seq2SeqTrainingArguments
+from transformers import AutoModelForSeq2SeqLM, DataCollatorForSeq2Seq, Seq2SeqTrainer, Seq2SeqTrainingArguments
 
 from dataset import HealthQADataset, get_lang_label, load_tokenizer
 
@@ -282,12 +282,20 @@ class LanguageBalancedSeq2SeqTrainer(Seq2SeqTrainer):
 
 TrainerClass = LanguageBalancedSeq2SeqTrainer if resolved_balanced_sampling else Seq2SeqTrainer
 
+data_collator = DataCollatorForSeq2Seq(
+    tokenizer,
+    model=model,
+    label_pad_token_id=-100,
+    pad_to_multiple_of=8,
+)
+
 trainer_kwargs = {
     "model": model,
     "args": training_args,
     "train_dataset": train_ds,
     "eval_dataset": val_ds,
     "compute_metrics": compute_metrics,
+    "data_collator": data_collator,
 }
 if resolved_balanced_sampling:
     trainer_kwargs["sample_weights"] = train_sample_weights

@@ -51,7 +51,7 @@ training:
   learning_rate:              5.0e-4
   optim:                      adafactor
   predict_with_generate:      true
-  generation_max_length:      64        # short sequences for training eval; inference uses max_new_tokens
+  generation_max_length:      128       # used during training eval; keep ≥ half of inference max_new_tokens
   eval_strategy:              epoch
   save_strategy:              epoch
   load_best_model_at_end:     true
@@ -65,7 +65,7 @@ training:
   save_total_limit:           2
   report_to:                  none
   dataloader_num_workers:     0         # avoid occasional multiprocessing crashes on cluster
-  balanced_sampling:          false
+  balanced_sampling:          true
   balance_alpha:              1.0       # 1.0 = inverse-frequency weighting by language
   seed:                       42
   metrics_out:                output/train_metrics.json
@@ -91,7 +91,7 @@ tuning:
 inference:
   batch_size:          32
   num_beams:           4
-  max_new_tokens:      256
+  max_new_tokens:      384
   no_repeat_ngram_size: 3
   length_penalty:      1.0
   early_stopping:      true
