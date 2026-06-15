@@ -8,22 +8,25 @@ This document explains the core ideas behind every component of the pipeline: *w
 
 1. [Problem Framing](#1-problem-framing)
 2. [Model Architecture — mT5](#2-model-architecture--mt5)
-3. [Tokenisation and the SentencePiece Vocabulary](#3-tokenisation-and-the-sentencepiece-vocabulary)
-4. [Language Prefix Prompting](#4-language-prefix-prompting)
-5. [Sequence-to-Sequence Training](#5-sequence-to-sequence-training)
-6. [The Encoder–Decoder Loss Function](#6-the-encoderdecoder-loss-function)
-7. [Language-Balanced Sampling](#7-language-balanced-sampling)
-8. [Optimisation — AdaFactor](#8-optimisation--adafactor)
-9. [Mixed Precision — BF16](#9-mixed-precision--bf16)
-10. [Gradient Accumulation and Gradient Checkpointing](#10-gradient-accumulation-and-gradient-checkpointing)
-11. [Dynamic Padding and DataCollatorForSeq2Seq](#11-dynamic-padding-and-datacollatorforseq2seq)
-12. [Evaluation — ROUGE Metrics](#12-evaluation--rouge-metrics)
-13. [LLM-as-a-Judge](#13-llm-as-a-judge)
-14. [Inference — Beam Search](#14-inference--beam-search)
-15. [Retrieval Fallback](#15-retrieval-fallback)
-16. [Hyperparameter Tuning — Random Search](#16-hyperparameter-tuning--random-search)
-17. [Pipeline Flow End-to-End](#17-pipeline-flow-end-to-end)
-18. [Key Configuration Knobs](#18-key-configuration-knobs)
+3. [Alternative Model — NLLB-200](#3-alternative-model--nllb-200)
+4. [Tokenisation and the SentencePiece Vocabulary](#4-tokenisation-and-the-sentencepiece-vocabulary)
+5. [Language Prefix Prompting vs. Language Token Conditioning](#5-language-prefix-prompting-vs-language-token-conditioning)
+6. [Sequence-to-Sequence Training](#6-sequence-to-sequence-training)
+7. [The Encoder–Decoder Loss Function](#7-the-encoderdecoder-loss-function)
+8. [Language-Balanced Sampling](#8-language-balanced-sampling)
+9. [Optimisation — AdaFactor](#9-optimisation--adafactor)
+10. [Mixed Precision — BF16](#10-mixed-precision--bf16)
+11. [Gradient Accumulation and Gradient Checkpointing](#11-gradient-accumulation-and-gradient-checkpointing)
+12. [Dynamic Padding and DataCollatorForSeq2Seq](#12-dynamic-padding-and-datacollatorforseq2seq)
+13. [Evaluation — ROUGE Metrics](#13-evaluation--rouge-metrics)
+14. [LLM-as-a-Judge](#14-llm-as-a-judge)
+15. [Inference — Beam Search](#15-inference--beam-search)
+16. [Retrieval Fallback](#16-retrieval-fallback)
+17. [Hyperparameter Tuning — Random Search](#17-hyperparameter-tuning--random-search)
+18. [Checkpoint Ensembling — Weight Averaging](#18-checkpoint-ensembling--weight-averaging)
+19. [Code Organisation — `src/` and `scripts/`](#19-code-organisation--src-and-scripts)
+20. [Pipeline Flow End-to-End](#20-pipeline-flow-end-to-end)
+21. [Key Configuration Knobs](#21-key-configuration-knobs)
 
 ---
 
@@ -49,7 +52,7 @@ Standard language models are trained predominantly on English web text. Language
 - Generate English responses to non-English questions.
 - Produce answers that are factually correct but linguistically inappropriate.
 
-The solution is to start from a model that was pre-trained on many languages simultaneously (`mT5`), then fine-tune on task-specific multilingual data.
+The solution is to start from a model that was pre-trained on many languages simultaneously, then fine-tune on task-specific multilingual data.
 
 ---
 
@@ -57,7 +60,7 @@ The solution is to start from a model that was pre-trained on many languages sim
 
 ### What mT5 is
 
-`mT5` (Multilingual T5) is an encoder–decoder transformer pre-trained by Google on the **mC4** corpus — a cleaned multilingual version of Common Crawl covering 101 languages. The base variant has approximately 580 million parameters.
+`mT5` (Multilingual T5) is an encoder–decoder transformer pre-trained by Google on the **mC4** corpus — a cleaned multilingual version of Common Crawl covering 101 languages. The default variant used here, `google/mt5-large`, has approximately 1.2 billion parameters.
 
 ### The transformer encoder
 
@@ -94,11 +97,52 @@ model.config.tie_word_embeddings = False
 
 ---
 
-## 3. Tokenisation and the SentencePiece Vocabulary
+## 3. Alternative Model — NLLB-200
+
+### What NLLB-200 is
+
+`facebook/nllb-200-1.3B` (No Language Left Behind, 200 languages, 1.3B parameters) is Meta's encoder–decoder transformer specifically designed for low-resource translation and multilingual generation. Unlike mT5, which was pre-trained with a general language modelling objective, NLLB-200 was pre-trained explicitly on parallel corpora across 200 languages — including all five competition languages — with an emphasis on African and other under-resourced languages.
+
+### Why NLLB may outperform mT5 on this task
+
+| Property | mT5-large | NLLB-200-1.3B |
+|---|---|---|
+| Pre-training objective | Masked span prediction (T5) | Seq2seq translation (200 langs) |
+| Language coverage | 101 languages (mostly web text) | 200 languages (parallel corpora) |
+| Low-resource African lang focus | Moderate | Strong (explicit training goal) |
+| Conditioning mechanism | Text prefix ("akan question: ...") | Dedicated language token (forced_bos) |
+
+### How NLLB conditions on language
+
+NLLB does not use text prefixes. Instead, it uses **forced beginning-of-sequence (BOS) tokens** — each language has a unique token in the vocabulary (e.g. `aka_Latn`, `amh_Ethi`, `swh_Latn`). The tokeniser's `src_lang` and `tgt_lang` attributes set the context, and at generation time:
+
+```python
+forced_bos_id = tokenizer.convert_tokens_to_ids("swh_Latn")
+model.generate(..., forced_bos_token_id=forced_bos_id)
+```
+
+This forces the very first generated token to be the language marker, which strongly conditions all subsequent output to remain in the target language.
+
+### Switching between mT5 and NLLB-200
+
+Change one line in `config.yaml`:
+
+```yaml
+model:
+  name: facebook/nllb-200-1.3B   # or facebook/nllb-200-distilled-600M for faster runs
+```
+
+All downstream code (dataset construction, tokenisation, generation) detects the model type automatically via `src/modeling.py:get_model_type()`.
+
+---
+
+## 4. Tokenisation and the SentencePiece Vocabulary
 
 ### SentencePiece
 
 mT5 uses a **SentencePiece** tokeniser with a **250,000-token unigram vocabulary** trained across all 101 mC4 languages. This is much larger than the 30–50k vocabularies typical for English-only models, because it needs to cover character sequences across dozens of scripts (Latin, Ethiopic for Amharic, etc.).
+
+NLLB-200 uses a similar SentencePiece vocabulary of ~256k tokens trained on its 200-language corpus, plus one dedicated language-code token per language.
 
 ### Subword tokenisation
 
@@ -118,11 +162,11 @@ These limits matter because transformer self-attention is O(n²) in sequence len
 
 ---
 
-## 4. Language Prefix Prompting
+## 5. Language Prefix Prompting vs. Language Token Conditioning
 
-### Concept
+### mT5: Text prefix prompting
 
-The model cannot know which language to generate in unless it is told. The technique used here is to prepend a natural-language prefix to every input:
+The mT5 model cannot know which language to generate in unless it is told. The technique used here is to prepend a natural-language prefix to every input:
 
 ```
 "akan question: <question text>"
@@ -131,27 +175,25 @@ The model cannot know which language to generate in unless it is told. The techn
 
 This is the standard **task prefix** pattern from the original T5 paper ("translate English to German: ..."). The model learns during fine-tuning to associate these prefixes with the corresponding output language and domain.
 
-### How the prefix is determined
+### NLLB: Language token conditioning
 
-`dataset.py` reads the `subset` column (e.g. `"Aka_Gha"`, `"Swa_Tz"`), extracts the three-letter language code, and maps it to a label:
+For NLLB-200, **no text prefix is added**. Instead, the tokeniser receives per-example `src_lang` and `tgt_lang` codes, which embed as language vectors in the model's internal representation. At generation time, `forced_bos_token_id` ensures the decoder starts in the correct language.
+
+Because the NLLB approach requires a uniform `forced_bos_token_id` per model call (the token must be the same for all items in a batch), `predict.py` groups non-retrieved test examples by language before calling `model.generate`, then rejoins results in the original order.
+
+### How the language label is determined
+
+`src/dataset.py:get_lang_label()` reads the `subset` column (e.g. `"Aka_Gha"`, `"Swa_Tz"`), extracts the three-letter language code, and maps it via `config.yaml:language_map`:
 
 ```
-Aka → akan
-Amh → amharic
-Lug → luganda
-Swa → swahili
-Eng → english
+Aka → akan,  Amh → amharic,  Lug → luganda,  Swa → swahili,  Eng → english
 ```
 
 If the `subset` column is absent or empty, `langdetect` is used as a fallback to detect the language from the question text itself.
 
-### Why this works
-
-During pre-training, mT5 was exposed to text in all these languages. The prefix acts as a **soft switch** — it pushes the decoder's probability distribution toward tokens belonging to the target language from the very first generation step, reducing the chance of code-switching (generating English words mid-answer).
-
 ---
 
-## 5. Sequence-to-Sequence Training
+## 6. Sequence-to-Sequence Training
 
 ### Teacher forcing
 
@@ -159,7 +201,7 @@ During training, the decoder does not use its own previous predictions. Instead,
 
 ### Label masking (`-100`)
 
-The reference answer is tokenised and padded to `target_max_len`. Padding positions are set to `-100`. PyTorch's cross-entropy loss ignores indices equal to `-100`, so padding does not contribute to the loss. This is handled in `dataset.py`:
+The reference answer is tokenised and padded to `target_max_len`. Padding positions are set to `-100`. PyTorch's cross-entropy loss ignores indices equal to `-100`, so padding does not contribute to the loss. This is handled in `src/dataset.py`:
 
 ```python
 labels[labels == self.pad_id] = -100
@@ -169,7 +211,7 @@ When `DataCollatorForSeq2Seq` adds further padding to equalise lengths within a 
 
 ---
 
-## 6. The Encoder–Decoder Loss Function
+## 7. The Encoder–Decoder Loss Function
 
 ### Cross-entropy loss
 
@@ -195,7 +237,7 @@ This is a known mT5 constraint — label smoothing distributes probability mass 
 
 ---
 
-## 7. Language-Balanced Sampling
+## 8. Language-Balanced Sampling
 
 ### The imbalance problem
 
@@ -203,7 +245,7 @@ The training set contains ~29,815 records split across nine language-country con
 
 ### Inverse-frequency weighting
 
-`train.py` computes a weight for each training example:
+`src/trainer.py:build_language_weights()` computes a weight for each training example:
 
 ```
 weight(i) = 1 / count(lang(i))^alpha
@@ -215,15 +257,15 @@ where `alpha` controls the strength of balancing (1.0 = full inverse-frequency; 
 
 PyTorch's `WeightedRandomSampler` draws training examples *with replacement* according to these weights. Low-resource language examples are sampled more frequently; high-resource examples less frequently. The total number of samples per epoch equals the dataset size.
 
-This is implemented in `LanguageBalancedSeq2SeqTrainer`, a subclass of HuggingFace's `Seq2SeqTrainer` that overrides `get_train_dataloader` to swap in the weighted sampler.
+This is implemented in `src/trainer.py:LanguageBalancedSeq2SeqTrainer`, a subclass of HuggingFace's `Seq2SeqTrainer` that overrides `get_train_dataloader` to swap in the weighted sampler.
 
 ---
 
-## 8. Optimisation — AdaFactor
+## 9. Optimisation — AdaFactor
 
 ### Why not Adam?
 
-Adam maintains per-parameter first and second moment estimates, requiring **2× the model parameter count** in optimiser state memory. For a 580M parameter model, Adam's state alone occupies several gigabytes.
+Adam maintains per-parameter first and second moment estimates, requiring **2× the model parameter count** in optimiser state memory. For a 1.2B parameter model, Adam's state alone occupies tens of gigabytes.
 
 **AdaFactor** approximates the second moment matrix as a factored outer product of row and column statistics, reducing optimiser memory to roughly **O(n + m)** per matrix instead of **O(n × m)**. This makes it the standard optimiser for T5-family models.
 
@@ -238,7 +280,7 @@ warmup_ratio: 0.03
 
 ---
 
-## 9. Mixed Precision — BF16
+## 10. Mixed Precision — BF16
 
 ### Why not FP16?
 
@@ -255,7 +297,7 @@ BF16 is only enabled when a CUDA GPU is available, since BF16 arithmetic is hard
 
 ---
 
-## 10. Gradient Accumulation and Gradient Checkpointing
+## 11. Gradient Accumulation and Gradient Checkpointing
 
 ### Gradient accumulation
 
@@ -263,7 +305,7 @@ With limited GPU memory, you cannot fit a large batch in a single forward pass. 
 
 ```
 effective_batch = per_device_train_batch_size × gradient_accumulation_steps
-               = 16 × 2 = 32
+               = 8 × 4 = 32
 ```
 
 Larger effective batches produce more stable gradient estimates and often allow a higher learning rate.
@@ -280,7 +322,7 @@ gradient_checkpointing: true
 
 ---
 
-## 11. Dynamic Padding and DataCollatorForSeq2Seq
+## 12. Dynamic Padding and DataCollatorForSeq2Seq
 
 ### The problem with static padding
 
@@ -305,7 +347,7 @@ The `label_pad_token_id=-100` argument ensures any padding the collator adds to 
 
 ---
 
-## 12. Evaluation — ROUGE Metrics
+## 13. Evaluation — ROUGE Metrics
 
 ### ROUGE-1
 
@@ -333,7 +375,7 @@ ROUGE-L rewards predictions that preserve the order of content words, capturing 
 
 ### Per-language breakdown
 
-`train.py` runs a separate ROUGE evaluation for each language after training. This diagnoses whether the model is performing well uniformly or is strong in English but weak in Akan — which would not be visible from the aggregate score alone.
+`scripts/train.py` runs a separate ROUGE evaluation for each language after training. This diagnoses whether the model is performing well uniformly or is strong in English but weak in Akan — which would not be visible from the aggregate score alone.
 
 ### Leaderboard score
 
@@ -349,7 +391,7 @@ During training, `generation_max_length = 128` is used for checkpoint evaluation
 
 ---
 
-## 13. LLM-as-a-Judge
+## 14. LLM-as-a-Judge
 
 The third evaluation metric (26% of the score) has an LLM read both the reference answer and the model's prediction, then score the prediction on:
 
@@ -359,11 +401,11 @@ The third evaluation metric (26% of the score) has an LLM read both the referenc
 
 The raw score (1–5) is normalised to [0, 1]. This metric catches failure modes that ROUGE cannot: a prediction that is in entirely the wrong language can still have high ROUGE overlap with a same-language reference if individual tokens happen to match.
 
-The LLM proxy in `evaluate.py` uses `(ROUGE-1 + ROUGE-L) / 2` as a local approximation, but this underestimates the importance of generating in the correct language.
+The LLM proxy in `scripts/evaluate.py` uses `(ROUGE-1 + ROUGE-L) / 2` as a local approximation, but this underestimates the importance of generating in the correct language.
 
 ---
 
-## 14. Inference — Beam Search
+## 15. Inference — Beam Search
 
 ### Greedy decoding vs. beam search
 
@@ -372,7 +414,7 @@ The LLM proxy in `evaluate.py` uses `(ROUGE-1 + ROUGE-L) / 2` as a local approxi
 **Beam search** maintains `num_beams` candidate sequences simultaneously. At each step, each beam is extended by all vocabulary tokens, producing `num_beams × vocab_size` candidates. The top `num_beams` by cumulative log-probability are kept. After all steps, the highest-scoring complete sequence is returned.
 
 ```yaml
-num_beams: 4
+num_beams: 8
 ```
 
 Beam search finds higher-probability sequences than greedy decoding, typically producing more fluent and complete answers.
@@ -403,24 +445,25 @@ With `early_stopping=True`, beam search stops as soon as all beams have generate
 
 ---
 
-## 15. Retrieval Fallback
+## 16. Retrieval Fallback
 
 Some test questions are identical to training questions. For these, the model-generated answer is unnecessary — we can return the known ground-truth answer directly and guarantee high ROUGE overlap.
 
-`predict.py` builds a dictionary mapping every training question (stripped of whitespace) to its answer:
+`src/retrieval.py:build_retrieval_map()` builds a dictionary mapping every training question to its answer. Questions are **normalised** before keying:
 
 ```python
-retrieval_map = dict(zip(
-    train_df[q_col].astype(str).str.strip(),
-    train_df[a_col].astype(str),
-))
+def normalize_question(text: str) -> str:
+    text = str(text).lower().strip()
+    return re.sub(r"\s+", " ", text)
 ```
 
-Before calling the model, each test question is looked up in this map. Exact matches are returned immediately, bypassing generation entirely. This is a deterministic improvement for any overlap between train and test question sets.
+This collapses whitespace and lowercases, so minor formatting differences between train and test (extra spaces, case) do not prevent a match.
+
+Before calling the model, each test question is looked up in this map. Exact normalised-matches are returned immediately, bypassing generation entirely. This is a deterministic improvement for any overlap between train and test question sets.
 
 ---
 
-## 16. Hyperparameter Tuning — Random Search
+## 17. Hyperparameter Tuning — Random Search
 
 ### Why random search?
 
@@ -430,7 +473,13 @@ Grid search evaluates all combinations of a discrete hyperparameter grid. With 4
 
 ### Trial protocol
 
-Each trial runs `train.py` as a subprocess with 2 epochs on the full dataset, saving no model weights (`--skip-save-model`). The trial's ROUGE-L score on the validation set is recorded. After all trials, results are sorted by ROUGE-L and the best configuration is printed as a ready-to-paste `train.py` command.
+Each trial runs `scripts/train.py` as a subprocess with 2 epochs on the full dataset, saving no model weights (`--skip-save-model`). The trial's ROUGE-L score on the validation set is recorded. After all trials, results are sorted by ROUGE-L and written to `output/tuning/results.json`. The full train then reads this file via `--from-tuning-results`:
+
+```bash
+python scripts/train.py --from-tuning-results output/tuning/results.json
+```
+
+Inside `train.py`, a three-tier resolution function applies parameters in priority order: CLI flag > tuning result > `config.yaml` default.
 
 ### Search space
 
@@ -439,8 +488,8 @@ Each trial runs `train.py` as a subprocess with 2 epochs on the full dataset, sa
 | Learning rate | 3e-4, 4e-4, 5e-4, 6e-4 |
 | Weight decay | 0.0, 0.01 |
 | Warmup ratio | 0.03, 0.06, 0.10 |
-| Generation max length | 64, 96 |
-| Gradient accumulation steps | 1, 2 |
+| Generation max length | 128, 192 |
+| Gradient accumulation steps | 2, 4 |
 | Balanced sampling | true, false |
 | Balance alpha | 0.7, 1.0, 1.3 |
 
@@ -448,62 +497,197 @@ Each trial runs `train.py` as a subprocess with 2 epochs on the full dataset, sa
 
 ---
 
-## 17. Pipeline Flow End-to-End
+## 18. Checkpoint Ensembling — Weight Averaging
+
+### The idea
+
+After training, the Trainer saves a checkpoint at each epoch (up to `save_total_limit = 3`). Each checkpoint represents the model at a different point in the loss landscape. **Weight averaging** arithmetically averages the parameter tensors of multiple checkpoints:
 
 ```
-data/Train.csv
-data/Val.csv          ─┐
-data/Test.csv           │
-                        ▼
-              [ 1 ] eda.py
-                Exploratory data analysis:
-                language distribution, answer lengths,
-                duplicate detection, null counts.
-                → output/eda_report.txt
-                → output/answer_length_dist.png
-
-              [ 2 ] tune.py  (optional)
-                Random search over 8 hyperparameter trials.
-                Each trial runs train.py with 2 epochs.
-                → output/tuning/results.json
-                → suggested train.py flags
-
-              [ 3 ] train.py
-                Fine-tunes mT5-base with the best config.
-                Saves best checkpoint by val ROUGE-L.
-                Runs per-language ROUGE breakdown.
-                → output/final_model/
-                → output/train_metrics.json
-
-              [ 4 ] predict.py
-                Loads final_model, generates answers for Test.csv.
-                Uses retrieval fallback for exact-match questions.
-                → output/submission.csv
-
-              [ 5 ] evaluate.py  (validation set)
-                Scores submission against Val.csv ground truth.
-                Per-language breakdown + leaderboard proxy.
-                → output/eval_results.json
+W_ensemble = (W_ckpt1 + W_ckpt2 + ... + W_ckptK) / K
 ```
 
-`run_all.sh` chains steps 1, 3, 4, 5 in sequence. Steps 2 (tuning) is run manually before step 3 when exploring hyperparameters.
+This is not the same as averaging predictions — it is an average in weight space. Empirically, weight averaging over the last few checkpoints often achieves better generalisation than any single checkpoint, because the averaged weights tend to sit in a flatter region of the loss landscape (lower sharpness) that is more robust to small input distribution shifts.
+
+### Why flat minima generalise better
+
+The concept of **loss landscape sharpness** posits that a sharp minimum (steep walls) corresponds to a solution whose performance degrades quickly if the weights shift slightly — i.e. a solution that overfits to the training distribution. A flat minimum is surrounded by a large region of low loss — more forgiving of small perturbations, more likely to generalise.
+
+Weight averaging across multiple checkpoints effectively averages solutions from different points in the optimisation trajectory, which tends to produce a point in a flatter basin.
+
+### Implementation in `scripts/ensemble.py`
+
+The script:
+1. Scans `output/checkpoints/` for all `checkpoint-N` directories.
+2. Reads each checkpoint's `trainer_state.json` to find the last logged `eval_rougeL` value.
+3. Selects the top-K checkpoints by that metric.
+4. Loads and averages their state dicts in `float32` (upcasting to prevent precision loss from accumulating integer-truncation errors).
+5. Loads the model architecture from the best checkpoint, applies the averaged state dict, and saves the result to `output/ensemble_model/`.
+
+The ensemble model is then used for inference by pointing `predict.py` at it:
+
+```bash
+python scripts/predict.py --model-dir output/ensemble_model
+```
 
 ---
 
-## 18. Key Configuration Knobs
+## 19. Code Organisation — `src/` and `scripts/`
+
+The project separates reusable library code from runnable entrypoints.
+
+```
+multilqa/
+├── config.yaml                   ← single source of truth for all hyperparameters
+│
+├── src/                          ← importable Python package (library)
+│   ├── __init__.py
+│   ├── config.py                 ← load_config() — YAML loader
+│   ├── dataset.py                ← HealthQADataset, get_lang_label, load_tokenizer
+│   ├── metrics.py                ← make_compute_metrics, per_language_eval, build_scorer
+│   ├── modeling.py               ← load_model, build_training_args, get_model_type
+│   ├── retrieval.py              ← build_retrieval_map, normalize_question
+│   └── trainer.py                ← LanguageBalancedSeq2SeqTrainer, build_language_weights
+│
+├── scripts/                      ← thin runnable entrypoints
+│   ├── eda.py                    ← exploratory data analysis
+│   ├── tune.py                   ← random hyperparameter search
+│   ├── train.py                  ← fine-tuning (--from-tuning-results supported)
+│   ├── ensemble.py               ← checkpoint weight averaging
+│   ├── predict.py                ← inference + retrieval (--model-dir supported)
+│   ├── evaluate.py               ← ROUGE + LLM-proxy scoring
+│   ├── run_all.sh                ← simple linear pipeline (no tuning)
+│   └── run_tuned.sh              ← full pipeline with tuning + ensembling
+│
+├── slurm/                        ← SLURM job files for HPC submission
+│   ├── train.slurm
+│   ├── predict.slurm
+│   ├── tune.slurm
+│   └── evaluate.slurm
+│
+├── data/                         ← competition CSVs (Train.csv, Val.csv, Test.csv, ...)
+├── output/                       ← generated at runtime
+│   ├── checkpoints/              ← epoch checkpoints (checkpoint-N/)
+│   ├── final_model/              ← single best checkpoint saved after training
+│   ├── ensemble_model/           ← weight-averaged checkpoint from ensemble.py
+│   ├── tuning/results.json       ← hyperparameter trial results
+│   ├── submission.csv            ← final prediction output
+│   ├── train_metrics.json        ← best ROUGE scores + resolved params
+│   └── eval_results.json         ← post-submission evaluation
+│
+└── docs/
+    └── TUTORIAL.md               ← this document
+```
+
+Every script in `scripts/` inserts the project root onto `sys.path` so that `from src.X import Y` resolves correctly regardless of the current working directory:
+
+```python
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+```
+
+All configuration is centralised in `config.yaml` and loaded by every script via `src/config.py:load_config()`. There is no duplicated YAML loading.
+
+---
+
+## 20. Pipeline Flow End-to-End
+
+### Option A — Simple pipeline (no tuning)
+
+```
+data/Train.csv, Val.csv, Test.csv
+        │
+        ▼
+  [1] scripts/eda.py
+        Exploratory data analysis: language distribution,
+        answer lengths, duplicate detection, null counts.
+        → output/eda_report.txt
+        → output/answer_length_dist.png
+        │
+        ▼
+  [2] scripts/train.py
+        Fine-tunes model (mT5-large or NLLB-200) using config.yaml.
+        Saves checkpoint per epoch; loads best by val ROUGE-L.
+        Runs per-language ROUGE breakdown.
+        → output/checkpoints/checkpoint-N/
+        → output/final_model/
+        → output/train_metrics.json
+        │
+        ▼
+  [3] scripts/predict.py
+        Loads final_model, generates answers for Test.csv.
+        Retrieval fallback for normalised-exact-match questions.
+        → output/submission.csv
+        │
+        ▼
+  [4] scripts/evaluate.py output/submission.csv
+        Scores submission against Val.csv ground truth.
+        Per-language breakdown + leaderboard-proxy score.
+        → output/eval_results.json
+```
+
+Run with: `bash scripts/run_all.sh`
+
+### Option B — Full pipeline with tuning and ensembling
+
+```
+data/Train.csv, Val.csv, Test.csv
+        │
+        ▼
+  [1] scripts/eda.py                  (same as Option A)
+        │
+        ▼
+  [2] scripts/tune.py
+        Random search over N trials, each 2 epochs.
+        → output/tuning/results.json
+        │
+        ▼
+  [3] scripts/train.py
+          --from-tuning-results output/tuning/results.json
+        Applies best trial params (CLI > tuning > config fallback).
+        → output/checkpoints/checkpoint-N/
+        → output/final_model/
+        → output/train_metrics.json
+        │
+        ▼
+  [4] scripts/ensemble.py
+        Selects top-K checkpoints by eval_rougeL.
+        Averages their weights in float32.
+        → output/ensemble_model/
+        │
+        ▼
+  [5] scripts/predict.py
+          --model-dir output/ensemble_model
+        Uses the ensemble model instead of final_model.
+        → output/submission.csv
+        │
+        ▼
+  [6] scripts/evaluate.py output/submission.csv
+        → output/eval_results.json
+```
+
+Run with: `bash scripts/run_tuned.sh`
+
+---
+
+## 21. Key Configuration Knobs
 
 All tunable values live in `config.yaml`. Here are the most impactful ones and what to change them for:
 
 | Key | Default | Effect |
 |---|---|---|
-| `model.name` | `google/mt5-base` | Swap to `google/mt5-large` for better quality at ~2× memory cost |
+| `model.name` | `google/mt5-large` | Swap to `facebook/nllb-200-1.3B` for NLLB; `google/mt5-xl` for largest mT5 |
 | `training.num_train_epochs` | `5` | More epochs → better fit, diminishing returns after ~5 |
 | `training.learning_rate` | `5e-4` | Too high → unstable; too low → slow convergence |
+| `training.gradient_accumulation_steps` | `4` | Effective batch = per_device_batch × this; higher = more stable gradients |
 | `training.balanced_sampling` | `true` | Enables inverse-frequency language weighting |
 | `training.balance_alpha` | `1.0` | 0 = no balancing, 1 = full inverse-frequency, >1 = over-correct |
 | `training.generation_max_length` | `128` | Token budget for eval during training; should be close to inference limit |
+| `training.save_total_limit` | `3` | Number of checkpoints kept; ensemble.py needs at least 2 |
 | `inference.max_new_tokens` | `384` | Max answer length at submission time |
-| `inference.num_beams` | `4` | More beams → better quality, slower inference |
+| `inference.num_beams` | `8` | More beams → better quality, slower inference |
+| `ensemble.top_k` | `3` | Number of checkpoints to weight-average |
+| `ensemble.metric` | `eval_rougeL` | Trainer metric used to rank checkpoints |
 | `tuning.trials` | `8` | More trials → better chance of finding optimal hyperparams |
 | `model.input_max_len` | `256` | Truncates questions longer than this |
 | `model.target_max_len` | `512` | Truncates reference answers longer than this during training |
+| `model.nllb_language_map` | (see config) | Maps language labels to NLLB BCP-47 codes; only used when model is NLLB |

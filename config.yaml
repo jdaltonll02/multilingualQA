@@ -17,7 +17,6 @@ columns:
   subset:   subset          # encodes language+country, e.g. "Aka_Gha"
 
 # ── Language mapping ────────────────────────────────────────────────────────────
-# Maps subset prefix → normalised language label used as model prefix
 language_map:
   Aka: akan
   Amh: amharic
@@ -25,7 +24,6 @@ language_map:
   Swa: swahili
   Eng: english
 
-# Fallback: langdetect ISO code → label (used when subset column is absent)
 langdetect_map:
   ak: akan
   am: amharic
@@ -35,9 +33,25 @@ langdetect_map:
 
 # ── Model ───────────────────────────────────────────────────────────────────────
 model:
-  name:           google/mt5-large
+  # Primary model — change name here to switch architectures.
+  # Model type (mt5 | nllb) is auto-detected from the name; set `type` to override.
+  name: google/mt5-large
+  # Alternatives:
+  #   facebook/nllb-200-1.3B            — best for low-resource African languages
+  #   facebook/nllb-200-distilled-600M  — faster NLLB variant (~half the size)
+  #   google/mt5-xl                     — largest mT5; needs 4× memory of mt5-large
+  # type: nllb                          — uncomment only if auto-detection fails
+
   input_max_len:  256
   target_max_len: 512
+
+  # NLLB language codes — used when model type is nllb
+  nllb_language_map:
+    akan:     aka_Latn
+    amharic:  amh_Ethi
+    luganda:  lug_Latn
+    swahili:  swh_Latn
+    english:  eng_Latn
 
 # ── Training ────────────────────────────────────────────────────────────────────
 training:
@@ -47,7 +61,7 @@ training:
   per_device_train_batch_size: 8        # halved for mt5-large; effective batch = 8 x grad_accum 4 = 32
   per_device_eval_batch_size:  16
   gradient_accumulation_steps: 4
-  gradient_checkpointing:      true      # trade compute for activation memory
+  gradient_checkpointing:      true
   learning_rate:              5.0e-4
   optim:                      adafactor
   predict_with_generate:      true
@@ -57,19 +71,18 @@ training:
   load_best_model_at_end:     true
   metric_for_best_model:      rougeL
   fp16:                       false     # mT5 overflows fp16; use bf16 instead
-  bf16:                       true      # bf16 is stable on Ampere/Ada (L40S)
+  bf16:                       true
   weight_decay:               0.0
   warmup_ratio:               0.03
   label_smoothing_factor:     0.0
   logging_steps:              100
-  save_total_limit:           2
+  save_total_limit:           3         # keep 3 checkpoints so ensemble.py has enough to pick from
   report_to:                  none
-  dataloader_num_workers:     0         # avoid occasional multiprocessing crashes on cluster
+  dataloader_num_workers:     0
   balanced_sampling:          true
-  balance_alpha:              1.0       # 1.0 = inverse-frequency weighting by language
+  balance_alpha:              1.0
   seed:                       42
   metrics_out:                output/train_metrics.json
-  # Debug mode limits
   debug_train_rows:           500
   debug_val_rows:             100
 
@@ -81,7 +94,7 @@ tuning:
   learning_rates: [3.0e-4, 4.0e-4, 5.0e-4, 6.0e-4]
   weight_decays: [0.0, 0.01]
   warmup_ratios: [0.03, 0.06, 0.1]
-  label_smoothing_factors: [0.0]      # mt5 can fail with >0 in this trainer setup
+  label_smoothing_factors: [0.0]
   generation_max_lengths: [128, 192]
   gradient_accumulation_steps: [2, 4]
   balanced_sampling_options: [false, true]
@@ -89,18 +102,23 @@ tuning:
 
 # ── Inference ───────────────────────────────────────────────────────────────────
 inference:
-  batch_size:          32
-  num_beams:           8
-  max_new_tokens:      384
+  batch_size:           32
+  num_beams:            8
+  max_new_tokens:       384
   no_repeat_ngram_size: 3
-  length_penalty:      1.0
-  early_stopping:      true
-  output_file:         output/submission.csv
+  length_penalty:       1.0
+  early_stopping:       true
+  output_file:          output/submission.csv
+
+# ── Ensemble ────────────────────────────────────────────────────────────────────
+ensemble:
+  output_dir: ./output/ensemble_model
+  top_k:      3             # number of best checkpoints to weight-average
+  metric:     eval_rougeL   # trainer metric used to rank checkpoints
 
 # ── Evaluation ──────────────────────────────────────────────────────────────────
 evaluation:
-  output_file: output/eval_results.json
-  # Leaderboard weights
+  output_file:   output/eval_results.json
   weight_rouge1: 0.37
   weight_rougeL: 0.37
   weight_llm:    0.26

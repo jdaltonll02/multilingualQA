@@ -30,30 +30,51 @@ MCFG = cfg["model"]
 parser = argparse.ArgumentParser()
 parser.add_argument("--debug", action="store_true",
                     help="Limit to debug_train_rows / debug_val_rows for fast iteration")
-parser.add_argument("--num-train-epochs",          type=float, default=None)
-parser.add_argument("--learning-rate",             type=float, default=None)
-parser.add_argument("--weight-decay",              type=float, default=None)
-parser.add_argument("--warmup-ratio",              type=float, default=None)
-parser.add_argument("--label-smoothing-factor",    type=float, default=None)
-parser.add_argument("--generation-max-length",     type=int,   default=None)
-parser.add_argument("--gradient-accumulation-steps", type=int, default=None)
-parser.add_argument("--seed",                      type=int,   default=None)
-parser.add_argument("--output-dir",                type=str,   default=None)
-parser.add_argument("--final-model-dir",           type=str,   default=None)
-parser.add_argument("--metrics-out",               type=str,   default=None)
+parser.add_argument("--from-tuning-results", type=str, default=None, metavar="PATH",
+                    help="Path to output/tuning/results.json; applies best trial params as defaults "
+                         "(CLI args still take precedence)")
+parser.add_argument("--num-train-epochs",            type=float, default=None)
+parser.add_argument("--learning-rate",               type=float, default=None)
+parser.add_argument("--weight-decay",                type=float, default=None)
+parser.add_argument("--warmup-ratio",                type=float, default=None)
+parser.add_argument("--label-smoothing-factor",      type=float, default=None)
+parser.add_argument("--generation-max-length",       type=int,   default=None)
+parser.add_argument("--gradient-accumulation-steps", type=int,   default=None)
+parser.add_argument("--seed",                        type=int,   default=None)
+parser.add_argument("--output-dir",                  type=str,   default=None)
+parser.add_argument("--final-model-dir",             type=str,   default=None)
+parser.add_argument("--metrics-out",                 type=str,   default=None)
 parser.add_argument("--save-strategy", choices=["no", "epoch", "steps"], default=None)
-parser.add_argument("--skip-per-language-eval",    action="store_true")
-parser.add_argument("--skip-save-model",           action="store_true")
+parser.add_argument("--skip-per-language-eval",      action="store_true")
+parser.add_argument("--skip-save-model",             action="store_true")
 parser.add_argument("--disable-load-best-model-at-end", action="store_true")
-parser.add_argument("--balanced-sampling",         action="store_true")
-parser.add_argument("--no-balanced-sampling",      action="store_true")
-parser.add_argument("--balance-alpha",             type=float, default=None)
+parser.add_argument("--balanced-sampling",           action="store_true")
+parser.add_argument("--no-balanced-sampling",        action="store_true")
+parser.add_argument("--balance-alpha",               type=float, default=None)
 args = parser.parse_args()
 
 
-# -- Resolve config with CLI overrides ------------------------------------------
-def _get(cli_val, cfg_val):
-    return cfg_val if cli_val is None else cli_val
+# -- Load tuning results (optional) ---------------------------------------------
+_tuning_defaults: dict = {}
+if args.from_tuning_results:
+    with open(args.from_tuning_results) as _f:
+        _tdata = json.load(_f)
+    _tuning_defaults = ((_tdata.get("best") or {}).get("params") or {})
+    if _tuning_defaults:
+        print(f"[tune] Applying best params from {args.from_tuning_results}:")
+        for _k, _v in sorted(_tuning_defaults.items()):
+            print(f"  {_k}: {_v}")
+    else:
+        print(f"[warn] No best params found in {args.from_tuning_results}; using config.yaml defaults")
+
+
+# -- Resolve config (3-tier priority: CLI > tuning > config.yaml) ---------------
+def _get(cli_val, cfg_val, tuning_key: str = ""):
+    if cli_val is not None:
+        return cli_val
+    if tuning_key and tuning_key in _tuning_defaults:
+        return _tuning_defaults[tuning_key]
+    return cfg_val
 
 
 resolved_output_dir      = _get(args.output_dir,      TCFG["output_dir"])
@@ -62,23 +83,25 @@ resolved_save_strategy   = _get(args.save_strategy,   TCFG["save_strategy"])
 resolved_load_best       = False if args.disable_load_best_model_at_end else TCFG["load_best_model_at_end"]
 if resolved_save_strategy == "no":
     resolved_load_best = False
-resolved_metrics_out   = _get(args.metrics_out,              TCFG.get("metrics_out", "output/train_metrics.json"))
-resolved_num_epochs    = float(_get(args.num_train_epochs,   TCFG["num_train_epochs"]))
-resolved_lr            = float(_get(args.learning_rate,      TCFG["learning_rate"]))
-resolved_wd            = float(_get(args.weight_decay,       TCFG.get("weight_decay", 0.0)))
-resolved_warmup        = float(_get(args.warmup_ratio,       TCFG.get("warmup_ratio", 0.0)))
-resolved_label_smooth  = float(_get(args.label_smoothing_factor, TCFG.get("label_smoothing_factor", 0.0)))
-resolved_gen_max_len   = int(_get(args.generation_max_length, TCFG["generation_max_length"]))
-resolved_grad_accum    = int(_get(args.gradient_accumulation_steps, TCFG.get("gradient_accumulation_steps", 1)))
-resolved_seed          = int(_get(args.seed, TCFG.get("seed", 42)))
+resolved_metrics_out  = _get(args.metrics_out, TCFG.get("metrics_out", "output/train_metrics.json"))
+resolved_num_epochs   = float(_get(args.num_train_epochs,         TCFG["num_train_epochs"]))
+resolved_lr           = float(_get(args.learning_rate,            TCFG["learning_rate"],               "learning_rate"))
+resolved_wd           = float(_get(args.weight_decay,             TCFG.get("weight_decay", 0.0),       "weight_decay"))
+resolved_warmup       = float(_get(args.warmup_ratio,             TCFG.get("warmup_ratio", 0.0),       "warmup_ratio"))
+resolved_label_smooth = float(_get(args.label_smoothing_factor,   TCFG.get("label_smoothing_factor", 0.0), "label_smoothing_factor"))
+resolved_gen_max_len  = int(_get(args.generation_max_length,      TCFG["generation_max_length"],       "generation_max_length"))
+resolved_grad_accum   = int(_get(args.gradient_accumulation_steps, TCFG.get("gradient_accumulation_steps", 1), "gradient_accumulation_steps"))
+resolved_seed         = int(_get(args.seed,                       TCFG.get("seed", 42)))
+resolved_alpha        = float(_get(args.balance_alpha,            TCFG.get("balance_alpha", 1.0),      "balance_alpha"))
 
 if args.balanced_sampling:
     resolved_balanced = True
 elif args.no_balanced_sampling:
     resolved_balanced = False
+elif "balanced_sampling" in _tuning_defaults:
+    resolved_balanced = bool(_tuning_defaults["balanced_sampling"])
 else:
     resolved_balanced = bool(TCFG.get("balanced_sampling", False))
-resolved_alpha = float(_get(args.balance_alpha, TCFG.get("balance_alpha", 1.0)))
 
 os.makedirs(resolved_output_dir, exist_ok=True)
 os.makedirs(resolved_final_model_dir, exist_ok=True)

@@ -4,6 +4,7 @@ from transformers import AutoTokenizer
 from langdetect import detect
 
 from src.config import load_config
+from src.modeling import get_model_type
 
 cfg = load_config()
 
@@ -13,6 +14,10 @@ TARGET_MAX_LEN = cfg["model"]["target_max_len"]
 COLS           = cfg["columns"]
 LANG_MAP       = cfg["language_map"]
 LDET_MAP       = cfg["langdetect_map"]
+NLLB_LANG_MAP: dict[str, str] = cfg["model"].get("nllb_language_map", {})
+
+# Auto-detect model type; config.yaml `model.type` overrides detection
+MODEL_TYPE: str = cfg["model"].get("type") or get_model_type(MODEL_NAME)
 
 
 def subset_to_lang(subset_val: str) -> str:
@@ -39,19 +44,26 @@ class HealthQADataset(Dataset):
     """Wraps a pandas DataFrame of health QA pairs. Set is_test=True for inference."""
 
     def __init__(self, dataframe, tokenizer, is_test: bool = False):
-        self.tokenizer = tokenizer
-        self.is_test   = is_test
-        self.pad_id    = tokenizer.pad_token_id
+        self.tokenizer  = tokenizer
+        self.is_test    = is_test
+        self.pad_id     = tokenizer.pad_token_id
+        self.model_type = MODEL_TYPE
 
         q_col = COLS["question"]
         a_col = COLS["answer"]
 
-        self.inputs:  list[str] = []
-        self.targets: list[str] = []
+        self.inputs:      list[str] = []
+        self.targets:     list[str] = []
+        self.nllb_codes:  list[str] = []   # populated only for NLLB models
 
         for _, row in dataframe.iterrows():
             lang = get_lang_label(row)
-            self.inputs.append(f"{lang} question: {row[q_col]}")
+            if self.model_type == "nllb":
+                # NLLB conditions on language via tokenizer src/tgt lang — no text prefix
+                self.inputs.append(str(row[q_col]))
+                self.nllb_codes.append(NLLB_LANG_MAP.get(lang, "eng_Latn"))
+            else:
+                self.inputs.append(f"{lang} question: {row[q_col]}")
             if not is_test:
                 self.targets.append(str(row[a_col]))
 
@@ -59,6 +71,13 @@ class HealthQADataset(Dataset):
         return len(self.inputs)
 
     def __getitem__(self, idx: int) -> dict:
+        if self.model_type == "nllb" and self.nllb_codes:
+            # Set src/tgt lang on the shared tokenizer before each call.
+            # Safe only with dataloader_num_workers=0 (single process).
+            nllb_code = self.nllb_codes[idx]
+            self.tokenizer.src_lang = nllb_code
+            self.tokenizer.tgt_lang = nllb_code
+
         enc = self.tokenizer(
             self.inputs[idx],
             max_length=INPUT_MAX_LEN,
@@ -85,4 +104,7 @@ class HealthQADataset(Dataset):
 
 
 def load_tokenizer() -> AutoTokenizer:
+    if MODEL_TYPE == "nllb":
+        # Default src_lang for NLLB; will be overridden per-example in __getitem__
+        return AutoTokenizer.from_pretrained(MODEL_NAME, src_lang="eng_Latn")
     return AutoTokenizer.from_pretrained(MODEL_NAME)

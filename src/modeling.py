@@ -2,9 +2,21 @@ import torch
 from transformers import AutoModelForSeq2SeqLM, Seq2SeqTrainingArguments
 
 
+def get_model_type(model_name: str) -> str:
+    """Detect model family from HuggingFace model name."""
+    name = (model_name or "").lower()
+    if "nllb" in name:
+        return "nllb"
+    if "mbart" in name:
+        return "mbart"
+    return "mt5"
+
+
 def load_model(model_name: str) -> AutoModelForSeq2SeqLM:
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-    model.config.tie_word_embeddings = False
+    # mT5 checkpoints ship with untied embeddings; forcing tie=True corrupts weights
+    if get_model_type(model_name) == "mt5":
+        model.config.tie_word_embeddings = False
     return model
 
 
