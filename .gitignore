@@ -1,0 +1,26 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+slurm/
+# Virtual environment
+venv/
+.env
+
+# Logs and outputs
+logs/
+output/
+
+# Checkpoints, caches, and temporary files
+*.cache
+.mypy_cache/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Editor and IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store

@@ -1,0 +1,112 @@
+# ─────────────────────────────────────────
+# Central configuration — config.yaml
+# ─────────────────────────────────────────
+
+# ── Data paths ─────────────────────────────────────────────────────────────────
+data:
+  train:      data/Train.csv
+  val:        data/Val.csv
+  test:       data/Test.csv
+  submission: data/SampleSubmission.csv
+
+# Column names in the CSVs
+columns:
+  id:       ID
+  question: input
+  answer:   output
+  subset:   subset          # encodes language+country, e.g. "Aka_Gha"
+
+# ── Language mapping ────────────────────────────────────────────────────────────
+# Maps subset prefix → normalised language label used as model prefix
+language_map:
+  Aka: akan
+  Amh: amharic
+  Lug: luganda
+  Swa: swahili
+  Eng: english
+
+# Fallback: langdetect ISO code → label (used when subset column is absent)
+langdetect_map:
+  ak: akan
+  am: amharic
+  lg: luganda
+  sw: swahili
+  en: english
+
+# ── Model ───────────────────────────────────────────────────────────────────────
+model:
+  name:           google/mt5-base
+  input_max_len:  256
+  target_max_len: 512
+
+# ── Training ────────────────────────────────────────────────────────────────────
+training:
+  output_dir:                 ./output/checkpoints
+  final_model_dir:            ./output/final_model
+  num_train_epochs:           5
+  per_device_train_batch_size: 16       # 16 x grad_accum 2 = effective batch 32
+  per_device_eval_batch_size:  32
+  gradient_accumulation_steps: 2
+  gradient_checkpointing:      true      # trade compute for activation memory
+  learning_rate:              5.0e-4
+  optim:                      adafactor
+  predict_with_generate:      true
+  generation_max_length:      64        # short sequences for training eval; inference uses max_new_tokens
+  eval_strategy:              epoch
+  save_strategy:              epoch
+  load_best_model_at_end:     true
+  metric_for_best_model:      rougeL
+  fp16:                       false     # mT5 overflows fp16; use bf16 instead
+  bf16:                       true      # bf16 is stable on Ampere/Ada (L40S)
+  weight_decay:               0.0
+  warmup_ratio:               0.03
+  label_smoothing_factor:     0.0
+  logging_steps:              100
+  save_total_limit:           2
+  report_to:                  none
+  dataloader_num_workers:     0         # avoid occasional multiprocessing crashes on cluster
+  balanced_sampling:          false
+  balance_alpha:              1.0       # 1.0 = inverse-frequency weighting by language
+  seed:                       42
+  metrics_out:                output/train_metrics.json
+  # Debug mode limits
+  debug_train_rows:           500
+  debug_val_rows:             100
+
+# ── Hyperparameter tuning ──────────────────────────────────────────────────────
+tuning:
+  trials: 8
+  trial_epochs: 2
+  trial_seed: 42
+  learning_rates: [3.0e-4, 4.0e-4, 5.0e-4, 6.0e-4]
+  weight_decays: [0.0, 0.01]
+  warmup_ratios: [0.03, 0.06, 0.1]
+  label_smoothing_factors: [0.0]      # mt5 can fail with >0 in this trainer setup
+  generation_max_lengths: [64, 96]
+  gradient_accumulation_steps: [1, 2]
+  balanced_sampling_options: [false, true]
+  balance_alphas: [0.7, 1.0, 1.3]
+
+# ── Inference ───────────────────────────────────────────────────────────────────
+inference:
+  batch_size:          32
+  num_beams:           4
+  max_new_tokens:      256
+  no_repeat_ngram_size: 3
+  length_penalty:      1.0
+  early_stopping:      true
+  output_file:         output/submission.csv
+
+# ── Evaluation ──────────────────────────────────────────────────────────────────
+evaluation:
+  output_file: output/eval_results.json
+  # Leaderboard weights
+  weight_rouge1: 0.37
+  weight_rougeL: 0.37
+  weight_llm:    0.26
+
+# ── EDA ─────────────────────────────────────────────────────────────────────────
+eda:
+  lang_sample_size: 200
+  report_file:      output/eda_report.txt
+  plot_file:        output/answer_length_dist.png
