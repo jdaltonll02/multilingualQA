@@ -8,6 +8,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+_SCRIPTS_DIR = Path(__file__).resolve().parent
+
 import yaml
 
 
@@ -101,7 +105,7 @@ def main():
 
         cmd = [
             sys.executable,
-            "train.py",
+            str(_SCRIPTS_DIR / "train.py"),
             "--num-train-epochs", str(trial_epochs),
             "--output-dir", str(trial_dir / "checkpoints"),
             "--final-model-dir", str(trial_dir / "final_model"),
@@ -162,7 +166,7 @@ def main():
     if best is not None:
         print("Best trial:", json.dumps(best, indent=2, sort_keys=True))
         print("\nSuggested full-train overrides:")
-        print("python train.py ", " ".join(to_flag_list(best["params"])))
+        print("python scripts/train.py ", " ".join(to_flag_list(best["params"])))
 
 
 if __name__ == "__main__":

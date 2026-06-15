@@ -35,7 +35,7 @@ langdetect_map:
 
 # ── Model ───────────────────────────────────────────────────────────────────────
 model:
-  name:           google/mt5-base
+  name:           google/mt5-large
   input_max_len:  256
   target_max_len: 512
 
@@ -44,9 +44,9 @@ training:
   output_dir:                 ./output/checkpoints
   final_model_dir:            ./output/final_model
   num_train_epochs:           5
-  per_device_train_batch_size: 16       # 16 x grad_accum 2 = effective batch 32
-  per_device_eval_batch_size:  32
-  gradient_accumulation_steps: 2
+  per_device_train_batch_size: 8        # halved for mt5-large; effective batch = 8 x grad_accum 4 = 32
+  per_device_eval_batch_size:  16
+  gradient_accumulation_steps: 4
   gradient_checkpointing:      true      # trade compute for activation memory
   learning_rate:              5.0e-4
   optim:                      adafactor
@@ -82,15 +82,15 @@ tuning:
   weight_decays: [0.0, 0.01]
   warmup_ratios: [0.03, 0.06, 0.1]
   label_smoothing_factors: [0.0]      # mt5 can fail with >0 in this trainer setup
-  generation_max_lengths: [64, 96]
-  gradient_accumulation_steps: [1, 2]
+  generation_max_lengths: [128, 192]
+  gradient_accumulation_steps: [2, 4]
   balanced_sampling_options: [false, true]
   balance_alphas: [0.7, 1.0, 1.3]
 
 # ── Inference ───────────────────────────────────────────────────────────────────
 inference:
   batch_size:          32
-  num_beams:           4
+  num_beams:           8
   max_new_tokens:      384
   no_repeat_ngram_size: 3
   length_penalty:      1.0
