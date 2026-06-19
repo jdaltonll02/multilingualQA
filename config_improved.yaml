@@ -99,7 +99,7 @@ tuning:
 # ── Inference ───────────────────────────────────────────────────────────────────
 inference:
   batch_size:           16           # reduced for mT0-xl memory
-  num_beams:            8
+  num_beams:            4
   max_new_tokens:       384
   no_repeat_ngram_size: 3
   length_penalty:       1.0

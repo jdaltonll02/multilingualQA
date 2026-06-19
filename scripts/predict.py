@@ -37,8 +37,10 @@ parser.add_argument("--skip-val", action="store_true",
 parser.add_argument("--no-semantic", action="store_true",
                     help="Disable semantic retrieval (exact-match only)")
 parser.add_argument("--llm-model", type=str, default=None,
-                    help="LLM model ID for generation fallback and TargetLLM column. "
-                         "E.g. claude-sonnet-4-6 or gemini-2.5-pro.")
+                    help="LLM model ID for TargetLLM column (and ROUGE fallback when --no-local-model). "
+                         "E.g. gemini-2.5-flash or gemini-2.5-pro.")
+parser.add_argument("--no-local-model", action="store_true",
+                    help="Skip loading the local model; use LLM for ROUGE fallback generation too.")
 parser.add_argument("--llm-provider", type=str, default=None,
                     choices=["claude", "gemini"],
                     help="LLM provider. Auto-detected from --llm-model if omitted.")
@@ -169,7 +171,7 @@ model     = None
 amh_model     = None
 amh_tokenizer = None
 
-if args.llm_model is None:
+if not args.no_local_model:
     print(f"Loading primary model from {model_dir} on {DEVICE} ({MODEL_TYPE}) ...")
     tokenizer = AutoTokenizer.from_pretrained(model_dir, local_files_only=True)
     model     = AutoModelForSeq2SeqLM.from_pretrained(model_dir, local_files_only=True).to(DEVICE)
@@ -185,7 +187,7 @@ if args.llm_model is None:
         amh_model.generation_config.max_length = ICFG["max_new_tokens"] + MCFG["input_max_len"]
         print("Amharic router model ready.")
 else:
-    print(f"Skipping primary model load — {llm_provider} ({args.llm_model}) handles generation.")
+    print(f"Skipping primary model load — {llm_provider} ({args.llm_model}) handles ROUGE fallback generation.")
 
 # -- Load data ------------------------------------------------------------------
 train_df = pd.read_csv(DATA["train"])
@@ -334,8 +336,8 @@ def generate_answers(df: pd.DataFrame) -> tuple[list[str], list[str]]:
         if remaining:
             generated += len(remaining)
 
-            if llm_client is not None:
-                # LLM replaces model generation for the fallback
+            if llm_client is not None and args.no_local_model:
+                # LLM replaces model generation for the fallback (only when --no-local-model)
                 llm_items = [
                     (j, q, lang, batch_subsets[j], None)
                     for j, inp, q, lang in remaining
@@ -429,11 +431,14 @@ def generate_answers(df: pd.DataFrame) -> tuple[list[str], list[str]]:
 
 def save_submission(df: pd.DataFrame, answers_rouge: list[str], answers_llm: list[str],
                     output_file: str) -> None:
+    def _clean(answers):
+        return [str(a).replace("\n", " ").replace("\r", " ").strip() for a in answers]
+
     out = pd.DataFrame({
         "ID":         df[id_col],
-        "TargetRLF1": answers_rouge,
-        "TargetR1F1": answers_rouge,
-        "TargetLLM":  answers_llm,
+        "TargetRLF1": _clean(answers_rouge),
+        "TargetR1F1": _clean(answers_rouge),
+        "TargetLLM":  _clean(answers_llm),
     })
     out_dir = os.path.dirname(output_file)
     if out_dir:
