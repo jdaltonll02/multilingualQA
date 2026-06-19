@@ -51,6 +51,8 @@ parser.add_argument("--disable-load-best-model-at-end", action="store_true")
 parser.add_argument("--balanced-sampling",           action="store_true")
 parser.add_argument("--no-balanced-sampling",        action="store_true")
 parser.add_argument("--balance-alpha",               type=float, default=None)
+parser.add_argument("--resume-from-checkpoint",      type=str,   default=None,
+                    help="Path to a checkpoint directory to resume training from")
 args = parser.parse_args()
 
 
@@ -219,7 +221,7 @@ trainer = TrainerClass(**trainer_kwargs)
 # -- Train ----------------------------------------------------------------------
 HAS_GPU = torch.cuda.is_available()
 print(f"Training on {'GPU' if HAS_GPU else 'CPU'} | debug={args.debug}")
-trainer.train()
+trainer.train(resume_from_checkpoint=args.resume_from_checkpoint)
 
 if not args.skip_per_language_eval:
     per_language_eval(val_df, trainer, tokenizer, scorer, pad_id, vocab_max_id)

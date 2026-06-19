@@ -35,8 +35,9 @@ langdetect_map:
 model:
   # Primary model — change name here to switch architectures.
   # Model type (mt5 | nllb) is auto-detected from the name; set `type` to override.
-  name: google/mt5-large
+  name: bigscience/mt0-large
   # Alternatives:
+  #   google/mt5-large                  — raw mT5 (previous baseline)
   #   facebook/nllb-200-1.3B            — best for low-resource African languages
   #   facebook/nllb-200-distilled-600M  — faster NLLB variant (~half the size)
   #   google/mt5-xl                     — largest mT5; needs 4× memory of mt5-large
@@ -55,9 +56,9 @@ model:
 
 # ── Training ────────────────────────────────────────────────────────────────────
 training:
-  output_dir:                 ./output/checkpoints
-  final_model_dir:            ./output/final_model
-  num_train_epochs:           5
+  output_dir:                 /data/user_data/jgibson2/multilqa_output/baseline/checkpoints
+  final_model_dir:            /data/user_data/jgibson2/multilqa_output/baseline/final_model
+  num_train_epochs:           10
   per_device_train_batch_size: 8        # halved for mt5-large; effective batch = 8 x grad_accum 4 = 32
   per_device_eval_batch_size:  16
   gradient_accumulation_steps: 4
@@ -82,7 +83,7 @@ training:
   balanced_sampling:          true
   balance_alpha:              1.0
   seed:                       42
-  metrics_out:                output/train_metrics.json
+  metrics_out:                /data/user_data/jgibson2/multilqa_output/baseline/train_metrics.json
   debug_train_rows:           500
   debug_val_rows:             100
 
@@ -108,20 +109,29 @@ inference:
   no_repeat_ngram_size: 3
   length_penalty:       1.0
   early_stopping:       true
-  output_file:          output/submission.csv
+  output_file:          /data/user_data/jgibson2/multilqa_output/baseline/submission.csv
+  val_output_file:      /data/user_data/jgibson2/multilqa_output/baseline/val_predictions.csv
 
 # ── Ensemble ────────────────────────────────────────────────────────────────────
 ensemble:
-  output_dir: ./output/ensemble_model
+  output_dir: /data/user_data/jgibson2/multilqa_output/baseline/ensemble_model
   top_k:      3             # number of best checkpoints to weight-average
   metric:     eval_rougeL   # trainer metric used to rank checkpoints
 
 # ── Evaluation ──────────────────────────────────────────────────────────────────
 evaluation:
-  output_file:   output/eval_results.json
+  output_file:   /data/user_data/jgibson2/multilqa_output/baseline/eval_results.json
   weight_rouge1: 0.37
   weight_rougeL: 0.37
   weight_llm:    0.26
+
+# ── Retrieval ───────────────────────────────────────────────────────────────────
+retrieval:
+  semantic_model:       sentence-transformers/LaBSE   # 109-language model; much better for Amharic/Akan
+  similarity_threshold: 0.82   # global fallback; overridden per-language by tune_retrieval output
+  top_k:                3      # retrieve top-k neighbours; return the longest above-threshold answer
+  encode_batch_size:    256
+  thresholds_file:      /data/user_data/jgibson2/multilqa_output/baseline/retrieval_thresholds.json
 
 # ── EDA ─────────────────────────────────────────────────────────────────────────
 eda:

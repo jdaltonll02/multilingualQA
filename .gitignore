@@ -11,6 +11,7 @@ venv/
 # Logs and outputs
 logs/
 output/
+results_archive/
 
 # Checkpoints, caches, and temporary files
 *.cache
@@ -22,5 +23,11 @@ output/
 .vscode/
 .idea/
 
+# Secrets
+secrets.sh
+
 # OS files
 .DS_Store
+
+gcp-credentials.json
+secrets.sh

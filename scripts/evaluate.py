@@ -21,11 +21,14 @@ ECFG = cfg["evaluation"]
 COLS = cfg["columns"]
 
 parser = argparse.ArgumentParser()
-parser.add_argument("predictions_csv", help="Path to predictions CSV")
+parser.add_argument("predictions_csv", nargs="?", default=None,
+                    help="Path to val predictions CSV (default: inference.val_output_file from config)")
 args = parser.parse_args()
 
+predictions_csv = args.predictions_csv or cfg["inference"].get("val_output_file", "output/val_predictions.csv")
+
 val_df  = pd.read_csv(DATA["val"])
-pred_df = pd.read_csv(args.predictions_csv)
+pred_df = pd.read_csv(predictions_csv)
 
 id_col = COLS["id"]
 a_col  = COLS["answer"]

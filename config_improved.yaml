@@ -1,0 +1,135 @@
+# ─────────────────────────────────────────
+# Improved configuration — config_improved.yaml
+# Baseline lives in config.yaml; do not edit that file.
+# Activate with: export MULTILQA_CONFIG=config_improved.yaml
+# ─────────────────────────────────────────
+
+# ── Data paths (unchanged) ──────────────────────────────────────────────────────
+data:
+  train:      data/Train.csv
+  val:        data/Val.csv
+  test:       data/Test.csv
+  submission: data/SampleSubmission.csv
+
+columns:
+  id:       ID
+  question: input
+  answer:   output
+  subset:   subset
+
+# ── Language mapping (unchanged) ────────────────────────────────────────────────
+language_map:
+  Aka: akan
+  Amh: amharic
+  Lug: luganda
+  Swa: swahili
+  Eng: english
+
+langdetect_map:
+  ak: akan
+  am: amharic
+  lg: luganda
+  sw: swahili
+  en: english
+
+# ── Model ───────────────────────────────────────────────────────────────────────
+model:
+  name: bigscience/mt0-xl        # 3.7B instruction-tuned mT5; primary generation model
+  # amharic_model routes Amharic-language questions to NLLB-200 at generation time,
+  # bypassing the primary model for the language it handles worst.
+  amharic_model: facebook/nllb-200-1.3B
+
+  input_max_len:  256
+  target_max_len: 512
+
+  nllb_language_map:
+    akan:     aka_Latn
+    amharic:  amh_Ethi
+    luganda:  lug_Latn
+    swahili:  swh_Latn
+    english:  eng_Latn
+
+# ── Training ────────────────────────────────────────────────────────────────────
+training:
+  output_dir:                  /data/user_data/jgibson2/multilqa_output/improved/checkpoints
+  final_model_dir:             /data/user_data/jgibson2/multilqa_output/improved/final_model
+  num_train_epochs:            15
+  per_device_train_batch_size: 4        # halved vs baseline; mT0-xl is 3× larger
+  per_device_eval_batch_size:  8
+  gradient_accumulation_steps: 8        # effective batch = 4 × 8 = 32 (same as baseline)
+  gradient_checkpointing:      true
+  learning_rate:               3.0e-4   # slightly lower for larger model stability
+  optim:                       adafactor
+  predict_with_generate:       true
+  generation_max_length:       128
+  eval_strategy:               epoch
+  save_strategy:               epoch
+  load_best_model_at_end:      true
+  metric_for_best_model:       rougeL
+  fp16:                        false
+  bf16:                        true
+  weight_decay:                0.0
+  warmup_ratio:                0.03
+  label_smoothing_factor:      0.0
+  logging_steps:               100
+  save_total_limit:            2
+  report_to:                   none
+  dataloader_num_workers:      0
+  balanced_sampling:           true
+  balance_alpha:               1.0
+  seed:                        42
+  metrics_out:                 /data/user_data/jgibson2/multilqa_output/improved/train_metrics.json
+  debug_train_rows:            500
+  debug_val_rows:              100
+
+# ── Hyperparameter tuning (unchanged) ──────────────────────────────────────────
+tuning:
+  trials: 8
+  trial_epochs: 2
+  trial_seed: 42
+  learning_rates: [2.0e-4, 3.0e-4, 4.0e-4]
+  weight_decays: [0.0, 0.01]
+  warmup_ratios: [0.03, 0.06]
+  label_smoothing_factors: [0.0]
+  generation_max_lengths: [128, 192]
+  gradient_accumulation_steps: [4, 8]
+  balanced_sampling_options: [false, true]
+  balance_alphas: [0.7, 1.0, 1.3]
+
+# ── Inference ───────────────────────────────────────────────────────────────────
+inference:
+  batch_size:           16           # reduced for mT0-xl memory
+  num_beams:            8
+  max_new_tokens:       384
+  no_repeat_ngram_size: 3
+  length_penalty:       1.0
+  early_stopping:       true
+  output_file:          /data/user_data/jgibson2/multilqa_output/improved/submission.csv
+  val_output_file:      /data/user_data/jgibson2/multilqa_output/improved/val_predictions.csv
+
+# ── Ensemble ────────────────────────────────────────────────────────────────────
+ensemble:
+  output_dir: /data/user_data/jgibson2/multilqa_output/improved/ensemble_model
+  top_k:      3
+  metric:     eval_rougeL
+
+# ── Retrieval (same model as baseline — thresholds retuned separately) ──────────
+retrieval:
+  semantic_model:       sentence-transformers/LaBSE
+  similarity_threshold: 0.82
+  top_k:                3
+  encode_batch_size:    256
+  thresholds_file:      /data/user_data/jgibson2/multilqa_output/improved/retrieval_thresholds.json
+
+# ── Evaluation ──────────────────────────────────────────────────────────────────
+evaluation:
+  output_file:   /data/user_data/jgibson2/multilqa_output/improved/eval_results.json
+  weight_rouge1: 0.37
+  weight_rougeL: 0.37
+  weight_llm:    0.26
+
+# ── EDA (unchanged) ─────────────────────────────────────────────────────────────
+eda:
+  lang_sample_size: 200
+  report_file:      output/eda_report.txt
+  plot_file:        output/answer_length_dist.png

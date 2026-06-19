@@ -1,0 +1,566 @@
+{
+  "per_language": {
+    "akan": 0.98,
+    "amharic": 0.9,
+    "english": 0.8,
+    "luganda": 0.8,
+    "swahili": 0.72
+  },
+  "detail": {
+    "akan": {
+      "best_threshold": 0.98,
+      "best_combined_rougeL": 0.25271872917406885,
+      "sweep": [
+        {
+          "threshold": 0.7,
+          "n_retrieved": 1099,
+          "pct_retrieved": 0.9865350089766607,
+          "ret_rougeL": 0.19774631712099067,
+          "combined_rougeL": 0.19851723744700964
+        },
+        {
+          "threshold": 0.72,
+          "n_retrieved": 1098,
+          "pct_retrieved": 0.9856373429084381,
+          "ret_rougeL": 0.19792685136728397,
+          "combined_rougeL": 0.19874657343023142
+        },
+        {
+          "threshold": 0.74,
+          "n_retrieved": 1092,
+          "pct_retrieved": 0.9802513464991023,
+          "ret_rougeL": 0.198631138149336,
+          "combined_rougeL": 0.19974434727026474
+        },
+        {
+          "threshold": 0.76,
+          "n_retrieved": 1080,
+          "pct_retrieved": 0.9694793536804309,
+          "ret_rougeL": 0.19926680996233834,
+          "combined_rougeL": 0.20096782294373913
+        },
+        {
+          "threshold": 0.78,
+          "n_retrieved": 1063,
+          "pct_retrieved": 0.9542190305206463,
+          "ret_rougeL": 0.2001088685626786,
+          "combined_rougeL": 0.20262183777569778
+        },
+        {
+          "threshold": 0.8,
+          "n_retrieved": 1048,
+          "pct_retrieved": 0.940754039497307,
+          "ret_rougeL": 0.2014776522108071,
+          "combined_rougeL": 0.20464863511393705
+        },
+        {
+          "threshold": 0.82,
+          "n_retrieved": 1027,
+          "pct_retrieved": 0.921903052064632,
+          "ret_rougeL": 0.20190578413304397,
+          "combined_rougeL": 0.2060522803452748
+        },
+        {
+          "threshold": 0.84,
+          "n_retrieved": 1004,
+          "pct_retrieved": 0.9012567324955116,
+          "ret_rougeL": 0.20168984608726848,
+          "combined_rougeL": 0.2069538648757788
+        },
+        {
+          "threshold": 0.86,
+          "n_retrieved": 986,
+          "pct_retrieved": 0.8850987432675045,
+          "ret_rougeL": 0.20238496453179916,
+          "combined_rougeL": 0.20843049823012025
+        },
+        {
+          "threshold": 0.88,
+          "n_retrieved": 961,
+          "pct_retrieved": 0.8626570915619389,
+          "ret_rougeL": 0.20396187009202532,
+          "combined_rougeL": 0.21097159529482612
+        },
+        {
+          "threshold": 0.9,
+          "n_retrieved": 925,
+          "pct_retrieved": 0.8303411131059246,
+          "ret_rougeL": 0.2035291413698584,
+          "combined_rougeL": 0.21226162995253053
+        },
+        {
+          "threshold": 0.92,
+          "n_retrieved": 863,
+          "pct_retrieved": 0.774685816876122,
+          "ret_rougeL": 0.2055864268670122,
+          "combined_rougeL": 0.21672000573270336
+        },
+        {
+          "threshold": 0.94,
+          "n_retrieved": 744,
+          "pct_retrieved": 0.6678635547576302,
+          "ret_rougeL": 0.20980505813598033,
+          "combined_rougeL": 0.22481594546963138
+        },
+        {
+          "threshold": 0.96,
+          "n_retrieved": 506,
+          "pct_retrieved": 0.4542190305206463,
+          "ret_rougeL": 0.2172407974664672,
+          "combined_rougeL": 0.23784905163198597
+        },
+        {
+          "threshold": 0.98,
+          "n_retrieved": 109,
+          "pct_retrieved": 0.09784560143626571,
+          "ret_rougeL": 0.23168499357718084,
+          "combined_rougeL": 0.25271872917406885
+        }
+      ]
+    },
+    "amharic": {
+      "best_threshold": 0.9,
+      "best_combined_rougeL": 0.039396320325468956,
+      "sweep": [
+        {
+          "threshold": 0.7,
+          "n_retrieved": 451,
+          "pct_retrieved": 0.9761904761904762,
+          "ret_rougeL": 0.03053573560768601,
+          "combined_rougeL": 0.030642027617026817
+        },
+        {
+          "threshold": 0.72,
+          "n_retrieved": 448,
+          "pct_retrieved": 0.9696969696969697,
+          "ret_rougeL": 0.029455360293064392,
+          "combined_rougeL": 0.029623379678123046
+        },
+        {
+          "threshold": 0.74,
+          "n_retrieved": 441,
+          "pct_retrieved": 0.9545454545454546,
+          "ret_rougeL": 0.03186182467000355,
+          "combined_rougeL": 0.0320044690031852
+        },
+        {
+          "threshold": 0.76,
+          "n_retrieved": 431,
+          "pct_retrieved": 0.9329004329004329,
+          "ret_rougeL": 0.03175876132417339,
+          "combined_rougeL": 0.03197624703618773
+        },
+        {
+          "threshold": 0.78,
+          "n_retrieved": 412,
+          "pct_retrieved": 0.8917748917748918,
+          "ret_rougeL": 0.03510950464563219,
+          "combined_rougeL": 0.0350976534935075
+        },
+        {
+          "threshold": 0.8,
+          "n_retrieved": 399,
+          "pct_retrieved": 0.8636363636363636,
+          "ret_rougeL": 0.03606866657965543,
+          "combined_rougeL": 0.03592293931879332
+        },
+        {
+          "threshold": 0.82,
+          "n_retrieved": 375,
+          "pct_retrieved": 0.8116883116883117,
+          "ret_rougeL": 0.039358013621705754,
+          "combined_rougeL": 0.03853734871891701
+        },
+        {
+          "threshold": 0.84,
+          "n_retrieved": 343,
+          "pct_retrieved": 0.7424242424242424,
+          "ret_rougeL": 0.03932475890348643,
+          "combined_rougeL": 0.03821080585258841
+        },
+        {
+          "threshold": 0.86,
+          "n_retrieved": 294,
+          "pct_retrieved": 0.6363636363636364,
+          "ret_rougeL": 0.04130752668264965,
+          "combined_rougeL": 0.039013880616231594
+        },
+        {
+          "threshold": 0.88,
+          "n_retrieved": 234,
+          "pct_retrieved": 0.5064935064935064,
+          "ret_rougeL": 0.042980976364260945,
+          "combined_rougeL": 0.03904231270397632
+        },
+        {
+          "threshold": 0.9,
+          "n_retrieved": 168,
+          "pct_retrieved": 0.36363636363636365,
+          "ret_rougeL": 0.04708988089503961,
+          "combined_rougeL": 0.039396320325468956
+        },
+        {
+          "threshold": 0.92,
+          "n_retrieved": 112,
+          "pct_retrieved": 0.24242424242424243,
+          "ret_rougeL": 0.0420091825769411,
+          "combined_rougeL": 0.03669919577622815
+        },
+        {
+          "threshold": 0.94,
+          "n_retrieved": 75,
+          "pct_retrieved": 0.16233766233766234,
+          "ret_rougeL": 0.032627368808013965,
+          "combined_rougeL": 0.03461483259870357
+        },
+        {
+          "threshold": 0.96,
+          "n_retrieved": 46,
+          "pct_retrieved": 0.09956709956709957,
+          "ret_rougeL": 0.018115942028985504,
+          "combined_rougeL": 0.033318903318903324
+        },
+        {
+          "threshold": 0.98,
+          "n_retrieved": 24,
+          "pct_retrieved": 0.05194805194805195,
+          "ret_rougeL": 0.06944444444444443,
+          "combined_rougeL": 0.036789321789321795
+        }
+      ]
+    },
+    "english": {
+      "best_threshold": 0.8,
+      "best_combined_rougeL": 0.4554746910439742,
+      "sweep": [
+        {
+          "threshold": 0.7,
+          "n_retrieved": 3597,
+          "pct_retrieved": 0.9602242391884677,
+          "ret_rougeL": 0.4361066286250939,
+          "combined_rougeL": 0.430533780876792
+        },
+        {
+          "threshold": 0.72,
+          "n_retrieved": 3532,
+          "pct_retrieved": 0.9428723972237053,
+          "ret_rougeL": 0.4421503119754933,
+          "combined_rougeL": 0.4338010950073258
+        },
+        {
+          "threshold": 0.74,
+          "n_retrieved": 3438,
+          "pct_retrieved": 0.9177789642285105,
+          "ret_rougeL": 0.44960198572399934,
+          "combined_rougeL": 0.4369726713612145
+        },
+        {
+          "threshold": 0.76,
+          "n_retrieved": 3298,
+          "pct_retrieved": 0.8804057661505605,
+          "ret_rougeL": 0.46467633806439146,
+          "combined_rougeL": 0.44450362064505156
+        },
+        {
+          "threshold": 0.78,
+          "n_retrieved": 3119,
+          "pct_retrieved": 0.8326214628937534,
+          "ret_rougeL": 0.48012404201330544,
+          "combined_rougeL": 0.4493056292150292
+        },
+        {
+          "threshold": 0.8,
+          "n_retrieved": 2916,
+          "pct_retrieved": 0.7784303256807261,
+          "ret_rougeL": 0.500867007081868,
+          "combined_rougeL": 0.4554746910439742
+        },
+        {
+          "threshold": 0.82,
+          "n_retrieved": 2665,
+          "pct_retrieved": 0.711425520555259,
+          "ret_rougeL": 0.5180207319175075,
+          "combined_rougeL": 0.4539512147784724
+        },
+        {
+          "threshold": 0.84,
+          "n_retrieved": 2421,
+          "pct_retrieved": 0.6462893753336892,
+          "ret_rougeL": 0.5353176905316305,
+          "combined_rougeL": 0.4506684807199886
+        },
+        {
+          "threshold": 0.86,
+          "n_retrieved": 2135,
+          "pct_retrieved": 0.5699412706887347,
+          "ret_rougeL": 0.5705152740572328,
+          "combined_rougeL": 0.4524575841196455
+        },
+        {
+          "threshold": 0.88,
+          "n_retrieved": 1807,
+          "pct_retrieved": 0.4823812066203951,
+          "ret_rougeL": 0.6218998821228529,
+          "combined_rougeL": 0.45320797837586624
+        },
+        {
+          "threshold": 0.9,
+          "n_retrieved": 1489,
+          "pct_retrieved": 0.3974906567004805,
+          "ret_rougeL": 0.6779041418339775,
+          "combined_rougeL": 0.4478033281342212
+        },
+        {
+          "threshold": 0.92,
+          "n_retrieved": 1200,
+          "pct_retrieved": 0.3203416978109984,
+          "ret_rougeL": 0.7254025028181862,
+          "combined_rougeL": 0.43355552679706977
+        },
+        {
+          "threshold": 0.94,
+          "n_retrieved": 869,
+          "pct_retrieved": 0.23198077949813134,
+          "ret_rougeL": 0.7952366338590293,
+          "combined_rougeL": 0.41181330347664086
+        },
+        {
+          "threshold": 0.96,
+          "n_retrieved": 594,
+          "pct_retrieved": 0.1585691404164442,
+          "ret_rougeL": 0.8438229339773539,
+          "combined_rougeL": 0.38286781174120343
+        },
+        {
+          "threshold": 0.98,
+          "n_retrieved": 312,
+          "pct_retrieved": 0.08328884143085959,
+          "ret_rougeL": 0.8590636402961105,
+          "combined_rougeL": 0.3428969182521053
+        }
+      ]
+    },
+    "luganda": {
+      "best_threshold": 0.8,
+      "best_combined_rougeL": 0.28065808222977945,
+      "sweep": [
+        {
+          "threshold": 0.7,
+          "n_retrieved": 832,
+          "pct_retrieved": 0.983451536643026,
+          "ret_rougeL": 0.25797588481809863,
+          "combined_rougeL": 0.25653656757524596
+        },
+        {
+          "threshold": 0.72,
+          "n_retrieved": 827,
+          "pct_retrieved": 0.9775413711583925,
+          "ret_rougeL": 0.2668248059729105,
+          "combined_rougeL": 0.2646727122217458
+        },
+        {
+          "threshold": 0.74,
+          "n_retrieved": 815,
+          "pct_retrieved": 0.9633569739952719,
+          "ret_rougeL": 0.2716959524345184,
+          "combined_rougeL": 0.26800614803088946
+        },
+        {
+          "threshold": 0.76,
+          "n_retrieved": 793,
+          "pct_retrieved": 0.9373522458628841,
+          "ret_rougeL": 0.27958793146762867,
+          "combined_rougeL": 0.27278514143478666
+        },
+        {
+          "threshold": 0.78,
+          "n_retrieved": 758,
+          "pct_retrieved": 0.8959810874704491,
+          "ret_rougeL": 0.2920705350632166,
+          "combined_rougeL": 0.27947690966656996
+        },
+        {
+          "threshold": 0.8,
+          "n_retrieved": 704,
+          "pct_retrieved": 0.8321513002364066,
+          "ret_rougeL": 0.3027766158613543,
+          "combined_rougeL": 0.28065808222977945
+        },
+        {
+          "threshold": 0.82,
+          "n_retrieved": 631,
+          "pct_retrieved": 0.7458628841607565,
+          "ret_rougeL": 0.31657678546642043,
+          "combined_rougeL": 0.27958032107483605
+        },
+        {
+          "threshold": 0.84,
+          "n_retrieved": 549,
+          "pct_retrieved": 0.648936170212766,
+          "ret_rougeL": 0.33745761215891734,
+          "combined_rougeL": 0.2790203653371698
+        },
+        {
+          "threshold": 0.86,
+          "n_retrieved": 454,
+          "pct_retrieved": 0.5366430260047281,
+          "ret_rougeL": 0.3592488103134902,
+          "combined_rougeL": 0.27202241120842147
+        },
+        {
+          "threshold": 0.88,
+          "n_retrieved": 366,
+          "pct_retrieved": 0.4326241134751773,
+          "ret_rougeL": 0.37316469044186035,
+          "combined_rougeL": 0.2584613199783935
+        },
+        {
+          "threshold": 0.9,
+          "n_retrieved": 272,
+          "pct_retrieved": 0.3215130023640662,
+          "ret_rougeL": 0.3942348918431482,
+          "combined_rougeL": 0.24277292030890815
+        },
+        {
+          "threshold": 0.92,
+          "n_retrieved": 157,
+          "pct_retrieved": 0.18557919621749408,
+          "ret_rougeL": 0.4507323398281269,
+          "combined_rougeL": 0.22291250278134273
+        },
+        {
+          "threshold": 0.94,
+          "n_retrieved": 74,
+          "pct_retrieved": 0.08747044917257683,
+          "ret_rougeL": 0.5248758682943916,
+          "combined_rougeL": 0.20195368115104606
+        },
+        {
+          "threshold": 0.96,
+          "n_retrieved": 33,
+          "pct_retrieved": 0.03900709219858156,
+          "ret_rougeL": 0.6156984028797826,
+          "combined_rougeL": 0.1883463916016937
+        },
+        {
+          "threshold": 0.98,
+          "n_retrieved": 11,
+          "pct_retrieved": 0.013002364066193853,
+          "ret_rougeL": 0.6903937768930236,
+          "combined_rougeL": 0.17775334698087858
+        }
+      ]
+    },
+    "swahili": {
+      "best_threshold": 0.72,
+      "best_combined_rougeL": 0.43341296327112067,
+      "sweep": [
+        {
+          "threshold": 0.7,
+          "n_retrieved": 510,
+          "pct_retrieved": 0.9845559845559846,
+          "ret_rougeL": 0.43463447513208914,
+          "combined_rougeL": 0.4328949465586206
+        },
+        {
+          "threshold": 0.72,
+          "n_retrieved": 505,
+          "pct_retrieved": 0.974903474903475,
+          "ret_rougeL": 0.4362810197513673,
+          "combined_rougeL": 0.43341296327112067
+        },
+        {
+          "threshold": 0.74,
+          "n_retrieved": 497,
+          "pct_retrieved": 0.9594594594594594,
+          "ret_rougeL": 0.43120390923524365,
+          "combined_rougeL": 0.42677672372570674
+        },
+        {
+          "threshold": 0.76,
+          "n_retrieved": 488,
+          "pct_retrieved": 0.9420849420849421,
+          "ret_rougeL": 0.43130394628732416,
+          "combined_rougeL": 0.42497360190774935
+        },
+        {
+          "threshold": 0.78,
+          "n_retrieved": 479,
+          "pct_retrieved": 0.9247104247104247,
+          "ret_rougeL": 0.42911391150551037,
+          "combined_rougeL": 0.42104935060065535
+        },
+        {
+          "threshold": 0.8,
+          "n_retrieved": 469,
+          "pct_retrieved": 0.9054054054054054,
+          "ret_rougeL": 0.40734519812992137,
+          "combined_rougeL": 0.3992720037122261
+        },
+        {
+          "threshold": 0.82,
+          "n_retrieved": 441,
+          "pct_retrieved": 0.8513513513513513,
+          "ret_rougeL": 0.41945810801529526,
+          "combined_rougeL": 0.4049710919589676
+        },
+        {
+          "threshold": 0.84,
+          "n_retrieved": 408,
+          "pct_retrieved": 0.7876447876447876,
+          "ret_rougeL": 0.42289130565396504,
+          "combined_rougeL": 0.40146651101702263
+        },
+        {
+          "threshold": 0.86,
+          "n_retrieved": 355,
+          "pct_retrieved": 0.6853281853281853,
+          "ret_rougeL": 0.4559578207882183,
+          "combined_rougeL": 0.41380507023130786
+        },
+        {
+          "threshold": 0.88,
+          "n_retrieved": 267,
+          "pct_retrieved": 0.5154440154440154,
+          "ret_rougeL": 0.48823386438613364,
+          "combined_rougeL": 0.4076842505619646
+        },
+        {
+          "threshold": 0.9,
+          "n_retrieved": 184,
+          "pct_retrieved": 0.3552123552123552,
+          "ret_rougeL": 0.5471861186568946,
+          "combined_rougeL": 0.4019888915692444
+        },
+        {
+          "threshold": 0.92,
+          "n_retrieved": 111,
+          "pct_retrieved": 0.21428571428571427,
+          "ret_rougeL": 0.6365653601017258,
+          "combined_rougeL": 0.3894068628789413
+        },
+        {
+          "threshold": 0.94,
+          "n_retrieved": 64,
+          "pct_retrieved": 0.12355212355212356,
+          "ret_rougeL": 0.7212221056608553,
+          "combined_rougeL": 0.37132473892334894
+        },
+        {
+          "threshold": 0.96,
+          "n_retrieved": 24,
+          "pct_retrieved": 0.04633204633204633,
+          "ret_rougeL": 0.7749123699375655,
+          "combined_rougeL": 0.34298435690830426
+        },
+        {
+          "threshold": 0.98,
+          "n_retrieved": 2,
+          "pct_retrieved": 0.003861003861003861,
+          "ret_rougeL": 0.6475409836065573,
+          "combined_rougeL": 0.32325691499461995
+        }
+      ]
+    }
+  }
+}
